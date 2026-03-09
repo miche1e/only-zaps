@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cyber-dark: #0a0a0f;
+  --color-cyber-darker: #050508;
+  --color-cyber-purple: #b026ff;
+  --color-cyber-cyan: #00f0ff;
+  --color-cyber-pink: #ff2a6d;
+  --color-cyber-green: #39ff14;
+  --color-cyber-yellow: #f0ff00;
+  --color-cyber-gray: #1a1a2e;
+  
+  --font-family-display: 'Orbitron', sans-serif;
+  --font-family-body: 'Rajdhani', sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-cyber-darker);
+    color: #e0e0e0;
+  }
+  
+  body {
+    font-family: var(--font-family-body);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-zap {
+    background: linear-gradient(135deg, var(--color-cyber-purple), var(--color-cyber-pink));
+    color: white;
+    font-family: var(--font-family-display);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 1rem 2rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  
+  .btn-zap:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px var(--color-cyber-purple);
+  }
+  
+  .locked-preview {
+    filter: blur(20px);
+    user-select: none;
+    pointer-events: none;
+  }
+  
+  .cyber-border {
+    border: 1px solid var(--color-cyber-purple);
+    box-shadow: 0 0 10px var(--color-cyber-purple), inset 0 0 10px rgba(176, 38, 255, 0.1);
+  }
+  
+  .glow-text {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  }
+}
