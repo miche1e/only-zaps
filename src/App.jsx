@@ -19,6 +19,10 @@ function App() {
   const [error, setError] = useState('')
   const [blossomUrl, setBlossomUrl] = useState('')
   const [zapAmount, setZapAmount] = useState(1000) // sats
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploadStatus, setUploadStatus] = useState('idle') // idle, uploading, done, error
+  const [uploadHash, setUploadHash] = useState('')
+  const [uploadError, setUploadError] = useState('')
   
   const { fetchBlobMetadata, getBlossomUrl, isBlossomServerPrivate } = useBlossom(ndk)
 
@@ -132,6 +136,74 @@ function App() {
     })
   }
 
+  // Compute SHA-256 hash of a File as hex string
+  const sha256Hex = async (file) => {
+    const buf = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buf)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  // Upload file to Blossom with Nostr auth (Kind 24242)
+  const uploadToBlossom = async () => {
+    if (!uploadFile) return
+
+    if (!window.nostr || typeof window.nostr.signEvent !== 'function') {
+      setUploadError('No Nostr extension found. Install a Nostr browser extension (e.g. Alby) and try again.')
+      return
+    }
+
+    setUploadStatus('uploading')
+    setUploadError('')
+    setUploadHash('')
+
+    try {
+      const fileSha256 = await sha256Hex(uploadFile)
+
+      const now = Math.floor(Date.now() / 1000)
+      const unsignedEvent = {
+        kind: 24242,
+        created_at: now,
+        tags: [
+          ['t', 'upload'],
+          ['x', fileSha256],
+          ['u', 'https://blossom.nostruggle.app/upload'],
+          ['method', 'PUT'],
+          ['expiration', String(now + 300)]
+        ],
+        content: ''
+      }
+
+      const signedEvent = await window.nostr.signEvent(unsignedEvent)
+      const authHeader = 'Nostr ' + btoa(JSON.stringify(signedEvent))
+
+      const response = await fetch('https://blossom.nostruggle.app/upload', {
+        method: 'PUT',
+        headers: {
+          Authorization: authHeader,
+          'X-SHA-256': fileSha256
+        },
+        body: uploadFile
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || `Upload failed with status ${response.status}`)
+      }
+
+      const result = await response.json()
+      if (!result.sha256) {
+        throw new Error('Upload succeeded but no sha256 returned from Blossom')
+      }
+
+      setUploadHash(result.sha256)
+      setUploadStatus('done')
+    } catch (e) {
+      setUploadStatus('error')
+      setUploadError(e.message || 'Upload failed')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-cyber-darker p-8">
       <div className="max-w-2xl mx-auto">
@@ -156,6 +228,59 @@ function App() {
           <p className="text-sm text-cyber-gray mt-2">
             Paste your NWC connection string
           </p>
+        </section>
+
+        {/* Upload to Blossom */}
+        <section className="mb-8 cyber-border p-6 rounded-lg">
+          <h2 className="text-xl text-cyber-purple mb-4 font-display">Upload to Blossom</h2>
+          <p className="text-sm text-cyber-gray mb-4">
+            Select a photo and upload it to your Blossom server at blossom.nostruggle.app using your Nostr key (via browser extension).
+          </p>
+          <div className="flex flex-col gap-4">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null
+                setUploadFile(file)
+                setUploadHash('')
+                setUploadError('')
+                setUploadStatus('idle')
+              }}
+              className="w-full text-sm text-cyber-gray"
+            />
+            <button
+              onClick={uploadToBlossom}
+              disabled={!uploadFile || uploadStatus === 'uploading'}
+              className="btn-zap self-start"
+            >
+              {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload to Blossom'}
+            </button>
+          </div>
+
+          {uploadHash && (
+            <div className="mt-4 text-sm text-cyber-green break-all">
+              <p className="mb-1">Uploaded hash (sha256):</p>
+              <p>{uploadHash}</p>
+              <p className="mt-2">
+                URL:{' '}
+                <a
+                  href={`https://blossom.nostruggle.app/${uploadHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-cyber-cyan"
+                >
+                  https://blossom.nostruggle.app/{uploadHash}
+                </a>
+              </p>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="mt-4 bg-red-900/20 border border-red-500 rounded-lg p-3 text-sm text-red-400">
+              Upload error: {uploadError}
+            </div>
+          )}
         </section>
 
         {/* File Lookup */}

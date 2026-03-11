@@ -3,12 +3,13 @@
 @theme {
   --color-cyber-dark: #0a0a0f;
   --color-cyber-darker: #050508;
-  --color-cyber-purple: #b026ff;
-  --color-cyber-cyan: #00f0ff;
-  --color-cyber-pink: #ff2a6d;
-  --color-cyber-green: #39ff14;
-  --color-cyber-yellow: #f0ff00;
-  --color-cyber-gray: #1a1a2e;
+  --color-cyber-purple: #d18bff;
+  --color-cyber-cyan: #4de9ff;
+  --color-cyber-pink: #ff5c8a;
+  --color-cyber-green: #7dff6a;
+  --color-cyber-yellow: #fff57a;
+  /* Use a much lighter gray for body text to avoid blending with dark backgrounds */
+  --color-cyber-gray: #e5e7eb; /* gray-200 */
   
   --font-family-display: 'Orbitron', sans-serif;
   --font-family-body: 'Rajdhani', sans-serif;
@@ -16,8 +17,9 @@
 
 @layer base {
   html {
-    background-color: var(--color-cyber-darker);
-    color: #e0e0e0;
+    /* Lighter background + brighter text for better contrast */
+    background-color: #111827; /* slate-900 */
+    color: #f9fafb; /* zinc-50 */
   }
   
   body {
@@ -46,13 +48,14 @@
   }
   
   .locked-preview {
-    filter: blur(20px);
+    filter: blur(8px);
     user-select: none;
     pointer-events: none;
   }
   
   .cyber-border {
     border: 1px solid var(--color-cyber-purple);
+    background-color: #020617; /* very dark but distinct from page bg */
     box-shadow: 0 0 10px var(--color-cyber-purple), inset 0 0 10px rgba(176, 38, 255, 0.1);
   }
   
