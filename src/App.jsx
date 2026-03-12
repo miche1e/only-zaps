@@ -23,7 +23,7 @@ function App() {
   const [uploadStatus, setUploadStatus] = useState('idle') // idle, uploading, done, error
   const [uploadHash, setUploadHash] = useState('')
   const [uploadError, setUploadError] = useState('')
-  
+
   const { fetchBlobMetadata, getBlossomUrl, isBlossomServerPrivate } = useBlossom(ndk)
 
   // Parse NWC URI
@@ -44,22 +44,22 @@ function App() {
   // Fetch file metadata (Kind 9420)
   const fetchFileMetadata = async () => {
     if (!noteId) return
-    
+
     setStatus('fetching')
     setError('')
-    
+
     try {
       await ndk.connect()
-      
+
       const event = await ndk.fetchEvent(noteId, {
         kinds: [9420],
         cacheFirst: false
       })
-      
+
       if (!event) {
         throw new Error('File metadata not found')
       }
-      
+
       setFileMetadata(event)
       setStatus('locked')
     } catch (e) {
@@ -71,29 +71,29 @@ function App() {
   // Initiate zap payment
   const initiateZap = async () => {
     if (!fileMetadata || !nwcUri) return
-    
+
     setStatus('paying')
     setError('')
-    
+
     try {
       const nwc = parseNwcUri(nwcUri)
-      
+
       // Create zap request
       const zapRequest = {
         pubkey: fileMetadata.pubkey,
         amount: zapAmount * 1000, // convert to msats
         comment: 'Zap to unlock file'
       }
-      
+
       // Note: In a real implementation, you'd use @nostr-dev-kit/ndk-nwc
       // or similar to send the zap. This is a simplified flow.
-      
+
       // For now, simulate the payment flow
       setStatus('verifying')
-      
+
       // Wait for zap receipt (Kind 9735)
       await waitForZapReceipt(fileMetadata.pubkey)
-      
+
     } catch (e) {
       setError(e.message)
       setStatus('error')
@@ -108,26 +108,26 @@ function App() {
       '#p': [pubkey],
       limit: 1
     }, { closeOnEose: true })
-    
+
     return new Promise((resolve, reject) => {
       subscription.on('event', async (event) => {
         const zap = event
-        
+
         // Verify zap is for our amount
         const invoice = zap.tags.find(t => t[0] === 'bolt11')
         if (invoice) {
           setStatus('unlocked')
-          
+
           // Get Blossom URL
           if (fileMetadata) {
             const url = await getBlossomUrl(fileMetadata)
             setBlossomUrl(url)
           }
-          
+
           resolve()
         }
       })
-      
+
       // Timeout after 30 seconds
       setTimeout(() => {
         subscription.close()
@@ -159,10 +159,15 @@ function App() {
 
     try {
       const fileSha256 = await sha256Hex(uploadFile)
+      console.log('[only-zaps] uploadToBlossom sha256:', fileSha256)
+
+      const pubkey = await window.nostr.getPublicKey(); // 'npub182mtcnta6tskx9mhx639j2nrelhu5pz0gwjc6n5l73kgw3jdlt3s63semj' // npub1ulzey4scrkvy95j4nzfguzqujvwpyw6asfvh8pezxau2mp3ct3vq76gclz' // await window.nostr.getPublicKey()
+      console.log('[only-zaps] uploadToBlossom pubkey from nostr:', pubkey)
 
       const now = Math.floor(Date.now() / 1000)
       const unsignedEvent = {
         kind: 24242,
+        pubkey,
         created_at: now,
         tags: [
           ['t', 'upload'],
@@ -205,38 +210,23 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-cyber-darker p-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-bg px-4 py-10 sm:px-8">
+      <div className="max-w-xl mx-auto space-y-6">
         {/* Header */}
-        <header className="mb-12 text-center">
-          <h1 className="text-4xl font-display text-cyber-cyan glow-text mb-2">
-            ONLY-ZAPS
+        <header className="text-center mb-4">
+          <h1 className="text-3xl font-bold tracking-tight text-text-heading">
+            Mike's Blossom Client
           </h1>
-          <p className="text-cyber-gray">Zap-to-Unlock Blob Access</p>
+          <p className="text-sm text-text-muted mt-1">Upload &amp; manage files on Blossom</p>
         </header>
 
-        {/* NWC Connection */}
-        <section className="mb-8 cyber-border p-6 rounded-lg">
-          <h2 className="text-xl text-cyber-purple mb-4 font-display">Connect Wallet</h2>
-          <input
-            type="text"
-            placeholder="nostr+walletconnect://..."
-            value={nwcUri}
-            onChange={(e) => setNwcUri(e.target.value)}
-            className="w-full bg-cyber-dark border border-cyber-gray rounded p-3 text-white focus:border-cyber-cyan outline-none"
-          />
-          <p className="text-sm text-cyber-gray mt-2">
-            Paste your NWC connection string
-          </p>
-        </section>
-
         {/* Upload to Blossom */}
-        <section className="mb-8 cyber-border p-6 rounded-lg">
-          <h2 className="text-xl text-cyber-purple mb-4 font-display">Upload to Blossom</h2>
-          <p className="text-sm text-cyber-gray mb-4">
-            Select a photo and upload it to your Blossom server at blossom.nostruggle.app using your Nostr key (via browser extension).
+        <section className="card">
+          <h2 className="text-lg font-semibold text-text-heading mb-1">Upload to Blossom</h2>
+          <p className="text-sm text-text-muted mb-5">
+            Select a photo and upload it to blossom.nostruggle.app using your Nostr browser extension.
           </p>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <input
               type="file"
               accept="image/*"
@@ -247,78 +237,77 @@ function App() {
                 setUploadError('')
                 setUploadStatus('idle')
               }}
-              className="w-full text-sm text-cyber-gray"
+              className="text-sm text-text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-accent-hover"
             />
             <button
               onClick={uploadToBlossom}
               disabled={!uploadFile || uploadStatus === 'uploading'}
-              className="btn-zap self-start"
+              className="btn-primary self-start"
             >
-              {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload to Blossom'}
+              {uploadStatus === 'uploading' ? 'Uploading…' : 'Upload'}
             </button>
           </div>
 
           {uploadHash && (
-            <div className="mt-4 text-sm text-cyber-green break-all">
-              <p className="mb-1">Uploaded hash (sha256):</p>
-              <p>{uploadHash}</p>
-              <p className="mt-2">
-                URL:{' '}
-                <a
-                  href={`https://blossom.nostruggle.app/${uploadHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-cyber-cyan"
-                >
-                  https://blossom.nostruggle.app/{uploadHash}
-                </a>
+            <div className="mt-5 rounded-lg bg-bg p-4 text-sm break-all space-y-1.5">
+              <p className="text-success font-medium">Upload successful</p>
+              <p className="text-text-muted">
+                <span className="text-text">SHA-256:</span> {uploadHash}
               </p>
+              <a
+                href={`https://blossom.nostruggle.app/${uploadHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-link hover:underline"
+              >
+                View on Blossom &rarr;
+              </a>
             </div>
           )}
 
           {uploadError && (
-            <div className="mt-4 bg-red-900/20 border border-red-500 rounded-lg p-3 text-sm text-red-400">
-              Upload error: {uploadError}
+            <div className="mt-4 rounded-lg bg-error/10 border border-error/30 p-3 text-sm text-error">
+              {uploadError}
             </div>
           )}
         </section>
 
         {/* File Lookup */}
-        <section className="mb-8 cyber-border p-6 rounded-lg">
-          <h2 className="text-xl text-cyber-purple mb-4 font-display">File ID</h2>
-          <div className="flex gap-4">
+        <section className="card">
+          <h2 className="text-lg font-semibold text-text-heading mb-3">File Lookup</h2>
+          <div className="flex gap-3">
             <input
               type="text"
-              placeholder="Note ID (npub or note...)"
+              placeholder="Note ID (npub or note…)"
               value={noteId}
               onChange={(e) => setNoteId(e.target.value)}
-              className="flex-1 bg-cyber-dark border border-cyber-gray rounded p-3 text-white focus:border-cyber-cyan outline-none"
+              className="input-field flex-1"
             />
             <button
               onClick={fetchFileMetadata}
               disabled={status === 'fetching'}
-              className="btn-zap"
+              className="btn-primary whitespace-nowrap"
             >
-              {status === 'fetching' ? 'Fetching...' : 'Fetch'}
+              {status === 'fetching' ? 'Fetching…' : 'Fetch'}
             </button>
           </div>
         </section>
 
         {/* File Preview / Locked State */}
         {fileMetadata && (
-          <section className="mb-8 cyber-border p-6 rounded-lg">
-            <h2 className="text-xl text-cyber-purple mb-4 font-display">Preview</h2>
-            
+          <section className="card">
+            <h2 className="text-lg font-semibold text-text-heading mb-4">Preview</h2>
+
             {status === 'locked' && (
               <div className="text-center">
-                <div className="locked-preview bg-cyber-gray rounded-lg p-8 mb-6">
-                  <div className="text-6xl mb-4">🔒</div>
-                  <p className="text-cyber-pink">Content Locked</p>
+                <div className="locked-preview rounded-xl bg-bg p-10 mb-5">
+                  <div className="text-5xl mb-3 opacity-60">🔒</div>
+                  <p className="text-text-muted font-medium">Content Locked</p>
                 </div>
-                
-                <div className="mb-6">
-                  <label className="block text-cyber-cyan mb-2">
-                    Unlock Amount: {zapAmount} sats
+
+                <div className="mb-5">
+                  <label className="block text-sm text-text-muted mb-2">
+                    Unlock Amount: <span className="text-accent font-semibold">{zapAmount} sats</span>
                   </label>
                   <input
                     type="range"
@@ -327,46 +316,45 @@ function App() {
                     step="100"
                     value={zapAmount}
                     onChange={(e) => setZapAmount(Number(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-accent"
                   />
                 </div>
-                
+
                 <button
                   onClick={initiateZap}
                   disabled={status === 'paying'}
-                  className="btn-zap"
+                  className="btn-primary"
                 >
-                  {status === 'paying' ? 'Processing...' : `Unlock for ${zapAmount} sats`}
+                  {status === 'paying' ? 'Processing…' : `Unlock for ${zapAmount} sats`}
                 </button>
               </div>
             )}
-            
+
             {status === 'paying' && (
               <div className="text-center py-8">
-                <div className="animate-pulse text-cyber-yellow text-xl">
-                  ⚡ Sending Zap...
+                <div className="animate-pulse text-warning text-lg font-medium">
+                  Sending Zap…
                 </div>
               </div>
             )}
-            
+
             {status === 'verifying' && (
               <div className="text-center py-8">
-                <div className="animate-pulse text-cyber-green text-xl">
-                  ✓ Verifying Payment...
+                <div className="animate-pulse text-success text-lg font-medium">
+                  Verifying Payment…
                 </div>
               </div>
             )}
-            
+
             {status === 'unlocked' && blossomUrl && (
-              <div className="text-center">
-                <div className="text-cyber-green text-4xl mb-4">✓</div>
-                <p className="text-cyber-green mb-6">Content Unlocked!</p>
-                
+              <div className="text-center py-4">
+                <div className="text-success text-3xl mb-2">&#10003;</div>
+                <p className="text-success font-medium mb-5">Content Unlocked</p>
                 <a
                   href={blossomUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-zap inline-block"
+                  className="btn-primary inline-block"
                 >
                   View File
                 </a>
@@ -377,15 +365,14 @@ function App() {
 
         {/* Error Display */}
         {error && (
-          <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 text-red-400">
-            Error: {error}
+          <div className="rounded-lg bg-error/10 border border-error/30 p-4 text-sm text-error">
+            {error}
           </div>
         )}
 
-        {/* Status Indicator */}
-        <footer className="mt-12 text-center text-cyber-gray text-sm">
-          <p>Status: {status}</p>
-          <p className="mt-2">Powered by NIP-47 + NIP-B7</p>
+        {/* Footer */}
+        <footer className="pt-4 text-center text-text-muted text-xs">
+          <p>Powered by Nostr &middot; NIP-47 + NIP-B7</p>
         </footer>
       </div>
     </div>
